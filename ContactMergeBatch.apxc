@@ -1,0 +1,68 @@
+global class ContactMergeBatch implements Database.Batchable<sObject> {
+    
+    public String queryString;
+    global Database.QueryLocator start(Database.BatchableContext BC) {
+        queryString = 'SELECT Id, email FROM Contact  where email !=null  ORDER BY CreatedDate ASC';
+       // system.debug(queryString);
+        return Database.getQueryLocator(queryString);
+    }
+    global void execute(Database.BatchableContext BC, List<Contact> scope) {
+        
+        Map<String,List<Contact>> ContactMap = new Map<String,List<Contact>>();
+        Set<String> emailSet = new Set<String>();
+        for(Contact a :scope){
+            if(a.email!= null)
+            {
+                emailSet.add(a.email.toLowerCase());
+              //  system.debug(emailSet);
+            }
+            
+        }
+        String sobjectApiName = 'Contact';
+        Map<String, Schema.SObjectType> schemaMap = Schema.getGlobalDescribe();
+        Map<String, Schema.SObjectField> fieldMap = schemaMap.get(SobjectApiName).getDescribe().fields.getMap();
+        List<String> fieleList = new List<String>();
+        for(String fieldName : fieldMap.keySet()){
+            Schema.DescribeFieldResult fieldResult = fieldMap.get(fieldName).getDescribe();
+            if(!fieldResult.isCalculated() && fieldResult.isCreateable() && !fieldResult.isExternalId() ){
+                fieleList.add(fieldName);
+            }
+        }
+        
+        String fetchFields = 'SELECT '+String.join(fieleList,',')+' FROM '+sobjectApiName+' WHERE email IN :emailSet ORDER BY CreatedDate ASC ';
+        integer i = 1;
+        for(Contact a : Database.query(fetchFields)){
+            String key = a.email;
+            key = key.toLowerCase();
+            // map of email vs lead 
+            if(ContactMap.containsKey(key)){
+                ContactMap.get(key).add(a);
+            }else {
+                ContactMap.put(key,new List<Contact>{a});
+            }
+            i++;
+        }
+      //  System.debug('i >'+i);
+      //  System.debug('ContactMap >> '+ContactMap);
+        List<Contact> mergeList;
+        
+        for(String key : ContactMap.keySet()){
+         //   System.debug('Size >>'+ ContactMap.get(key).size());
+            if(ContactMap.get(key).size()>1 && ContactMap.get(key).size() <4){
+                mergeList = new List<Contact>();
+                Contact masterContact = ContactMap.get(key)[0];
+                mergeList.addAll(ContactMap.get(key));
+                mergeList.remove(0);
+              //  System.debug('mergeList >> '+mergeList);
+                for(Contact a : mergeList){
+                    Database.MergeResult mergeResult = Database.merge(masterContact, a, true);
+                }
+            }
+        }
+        
+        
+    }
+    
+    global void finish(Database.BatchableContext BC) {
+        
+    }}
