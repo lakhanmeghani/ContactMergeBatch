@@ -1,0 +1,29 @@
+@isTest
+public class ContactMergeBatchTest {
+    static testMethod void insertLead_Test(){ 
+        Account testAcc = new Account(); 
+        testAcc.name='Test Accs';
+        testAcc.website='www.tesAtabcdef.com';      
+        insert testAcc;
+        
+        contact master = new contact(FirstName='Test',LastName='Lead', AccountId =  testAcc.Id,LeadSource='Conference',email = 'lakhan.meghani@thinqloud.com' );
+        insert master;
+        
+        List<contact> duplicates = new List<contact>{new contact(FirstName='Test',LastName='Lead', AccountId =  testAcc.Id,LeadSource='Conference',email = 'lakhan.meghani@thinqloud.com' ),
+            new contact(FirstName='Test',LastName='Lead', AccountId =  testAcc.Id,LeadSource='Conference',email = 'lakhan.meghani@thinqloud.com' )};
+     	//insert duplicates;
+        
+        Database.DMLOptions dml = new Database.DMLOptions(); 
+        dml.DuplicateRuleHeader.allowSave = true;
+        dml.DuplicateRuleHeader.runAsCurrentUser = true; 
+        list<Database.SaveResult> sr = Database.Insert(duplicates, dml ); 
+
+        Test.startTest();
+        
+        ContactMergeBatch obj = new ContactMergeBatch();
+        DataBase.executeBatch(obj); 
+        
+        Test.stopTest();
+        
+    }
+}
